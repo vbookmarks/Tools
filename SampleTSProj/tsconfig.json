@@ -1,0 +1,11 @@
+{
+  "compileOnSave": true,
+  "compilerOptions": {
+    "module": "system",
+    "target": "es5",
+    "sourceMap": true,
+    "outFile": "dist/bundle.js",
+    "sourceRoot": "./src/",
+    "rootDir": "./src/"
+  }
+}
