@@ -1,23 +1,16 @@
-class ObjectArray {
+class ObjectArray implements IArrayTable {
   private tbl: Table;
   private headers: string[];
-  private headerRow: TableRow;
   private objs: any;
+
   constructor(_tbl?: Table) {
     this.tbl = _tbl || new Table();
-    this.addHeaderRow();
   }
 
-  private addHeaderRow() {
-    this.headerRow = this.tbl.addRow();
-  }
-
-  appendObject(index: number, obj: any) {
+  appendItem(index: number, obj: any) {
     for (let key in obj) {
       if (this.headers.indexOf(key) == -1) {
         this.headers.push(key);
-        let td = this.headerRow.addCell();
-        td.setValue(key);
       }
 
       this.objs.push(obj);
@@ -25,6 +18,12 @@ class ObjectArray {
   }
 
   commit() {
+    let headerRow = this.tbl.addRow();
+    this.headers.map(h => {
+      let td = headerRow.addCell();
+      td.setValue(h);
+    });
+
     this.objs.map(obj => {
       let tr = this.tbl.addRow();
       this.headers.map(h => {
@@ -37,5 +36,7 @@ class ObjectArray {
         }
       });
     });
+
+    return this.tbl;
   }
 }

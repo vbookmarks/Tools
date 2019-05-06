@@ -8,23 +8,23 @@ class Grid {
     this.startFlow(json);
   }
 
-  public expandAll(){
+  public expandAll() {}
 
-  }
-
-  public collapseAll(){
-      
-  }
+  public collapseAll() {}
 
   private startFlow(json: any) {
-    if(Utils.getType(json) == "object"){
-        let objTable = new cObject(json);
-        this.parentElement.appendChild(objTable);
+    if (Utils.getType(json) == "object") {
+      let cObj = new cObject();
+      let objTbl = cObj.generateObjectTable(json);
+      this.parentElement.appendChild(objTbl);
+    } else if (Utils.getType(json) == "array") {
+      let cArr = new cArray();
+      let arrTabls: Table[] = cArr.generateArrayTable(json);
+      arrTabls.map(tbl => {
+        this.parentElement.appendChild(tbl);
+      });
+    } else {
+      this.parentElement.appendChild(`<span>${json}</span>`);
     }
-    else if(Utils.getType(json) == "array"){
-      let objTable = new cObject(json);
-      this.parentElement.appendChild(objTable);
-  }
-    
   }
 }

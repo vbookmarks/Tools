@@ -1,8 +1,8 @@
 class cObject {
   private tbl: Table;
 
-  constructor(_tbl?: Table) {
-    this.tbl = _tbl || new Table();
+  constructor() {
+   
   }
 
   generateObjectTable(obj: any): Table {

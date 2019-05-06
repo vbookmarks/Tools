@@ -1,23 +1,40 @@
-class cArray{
-    private tbl: Table;
-  
-    constructor(_json: any, _tbl?: Table) {
-      this.tbl = _tbl || new Table();
-    }
-  
-    generateArrayTable(arr: any): Table {
-        let prevItemType: string;
-        let tblInstance: Table;
+class cArray {
+  private tbls: Table[];
 
-        arr.map((item, index) => {
-            let itemType = Utils.getType(item);
+  constructor() {}
 
-            if(itemType == 'object'){
-                if(prevItemType == ""){
-                    let objArr = new ObjectArray();
-                    objArr.appendObject(index, item);
-                }
-            }
-        });
-      return this.tbl;
+  generateArrayTable(arr: any): Table[] {
+    let prevItemType: string;
+    let tblInstance: Table;
+    let arrTbl: IArrayTable;
+
+    arr.map((item, index) => {
+      let itemType = Utils.getType(item);
+
+      if (itemType == "object") {
+        if (prevItemType == "object") {
+            arrTbl = new ObjectArray(tblInstance);
+            arrTbl.appendItem(index, item);
+        } else {
+          if (arrTbl != null) {
+            tblInstance = arrTbl.commit();
+            this.tbls.push(tblInstance);
+            tblInstance = null;
+          }
+
+          arrTbl = new ObjectArray();
+          arrTbl.appendItem(index, item);
+        }
+        prevItemType = "object";
+      }
+      else {
+          
+      }
+
+    });
+
+    return this.tbls;
+  }
+
+  private processItem(item) {}
 }
