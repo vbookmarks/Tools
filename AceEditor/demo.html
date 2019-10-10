@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+    <style>
+        #editor {
+            /** Setting height is also important, otherwise editor wont showup**/
+            height: 600px;
+            width: 600px;
+        }
+        .myMarker {
+  position:absolute;
+  background:rgba(100,200,100,0.5);
+  z-index:20;
+}
+    </style>
+
+    <script type="text/javascript" src="//code.jquery.com/jquery-2.0.2.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.2/ace.js"></script>
+    <!-- <script src="ace.js"></script> -->
+
+
+</head>
+
+<body>
+    <div id="editor"></div>
+    <br>
+    <input type="text" id="start" value="50">
+    <input type="text" id="end" value="55">
+    <button onclick="highlightLine();">Highlight Lines</button>
+    <button onclick="clearSel();">Clear Selection</button>
+    <button onclick="clearContent();">Clear Content</button>
+    <button onclick="clipContent();">Clip Content</button>
+    <button onclick="getErrorDetails();">Error Content</button>
+    <button onclick="getValue();">Get Value</button>
+    <button onclick="search();">Search</button>
+</body>
+
+</html>
+<script src="methods.js"></script>
+<script>
+    var editor = ace.edit("editor");
+    editor.setTheme("ace/theme/monokai");
+    editor.getSession().setMode("ace/mode/json");
+    editor.on("change", onChange);
+    editor.on("changeSession", onSessionChange);
+</script>
