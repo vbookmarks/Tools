@@ -5,37 +5,77 @@ const yearsToProcess = [
     "2019",
     "2020"
 ];
-let originalCash = 4000;
-const monthlyAdd = 4000;
-const cashTakeout = 2000;
+let originalCash = 300000;
+const monthlyAdd = 0;
+const cashTakeout = 0;
+const pctTakeout = 0;
+const startPctTakeoutAfter = 1000000;
+const maxPctTakeout = 5000;
 const hasCashLimit = true;
-const cashLimit = 100000;
+const cashLimit = 300000;
+const logEntries = [];
+let totalCashout = 0;
 
-const buyLevels = [200, 1500, 4000, 6000];
-const sellLevels = [200, 1500, 4000, 6000];
+// const buyLevels = {
+//     "2016": [1500, 3000, 6000, 10000],
+//     "2017": [1500, 3000, 6000, 10000],
+//     "2018": [1500, 3000, 6000, 10000],
+//     "2019": [1500, 3000, 6000, 10000],
+//     "2020": [1500, 3000, 6000, 10000],
+// };
+// const sellLevels = {
+//     "2016": [1500, 3000, 6000, 10000],
+//     "2017": [1500, 3000, 6000, 10000],
+//     "2018": [1500, 3000, 6000, 10000],
+//     "2019": [1500, 3000, 6000, 10000],
+//     "2020": [1500, 3000, 6000, 10000],
+// };
+const buyLevels = {
+    "2016": [1500, 3000, 6000, 10000],
+    "2017": [2000, 4000, 7000, 11000],
+    "2018": [3000, 5500, 8500, 12500],
+    "2019": [4500, 7000, 10000, 14000],
+    "2020": [6000, 9000, 12000, 16000]
+};
+const sellLevels = {
+    "2016": [200, 500, 1000, 2000],
+    "2017": [500, 900, 1500, 3000],
+    "2018": [900, 1500, 2500, 4000],
+    "2019": [1500, 2500, 4000, 6000],
+    "2020": [2000, 3500, 5000, 8000]
+};
+const hasPctLevels = true;
+const buyLevelsPct = [0.5, 1.5, 3, 5];
+const sellLevelsPct = [0.2, 0.5, 1, 2];
+// const buyLevelsPct = [0.5, 1.5, 3, 5];
+// const sellLevelsPct = [0.2, 0.5, 1, 2];
+
 let cash = originalCash;
 let globalQty = 0;
 let lastPrice = 0;
-const rsiStats = {
+const stats = {
     '<40': 0,
     '40-45': 0,
     '45-50': 0,
     '60-65': 0,
     '65-70': 0,
     '>70': 0,
-    '50-60': 0
+    '50-60': 0,
+    'buyNotEnoughCash': 0,
+    'sellNotEnoughShares': 0
+
 };
 function process() {
     const data = prepareData(yearsToProcess);
     let currentMonth = -1;
-    let prevMonth = -1;
+    let prevMonth = 0;
     for (let i = 0; i < data.length; i++) {
         const c = data[i];
         const date = new Date(c.date);
         const last = c.last;
         const rsi = Math.round(c.rsi);
         lastPrice = last;
-        let calcQty = (level) => Math.round(level / last);
+        let calcQtySm = (level) => Math.round(level / last);
 
         if (rsi <= 55) {
             buyZone(date, last, rsi);
@@ -44,25 +84,40 @@ function process() {
             sellZone(date, last, rsi);
         }
         else {
-            rsiStats['50-60'] += 1;
+            stats['50-60'] += 1;
             log('hold..')
         }
-
         //Month change
         currentMonth = date.getMonth();
         if (prevMonth !== currentMonth) {
             prevMonth = currentMonth;
             if (hasCashLimit && originalCash >= cashLimit) {
                 const prevCash = cash;
-                cash -= cashTakeout;
-                log(`No more cash added! Cash Takeout: ${cashTakeout} PrevCash: ${formatCash(prevCash)} NewCash: ${formatCash(cash)}`);
+                const totalPortfolioValue = (cash + (lastPrice * globalQty));
+                let newcashout = 0
+                if (pctTakeout > 0) {
+                    if(totalPortfolioValue > startPctTakeoutAfter){
+                        newcashout = percentOf(totalPortfolioValue, pctTakeout);
+                        if(newcashout > maxPctTakeout) newcashout = maxPctTakeout;
+                        cash -= newcashout;
+                        totalCashout += newcashout;
+                    }
+                }
+                else {
+                    newcashout = cashTakeout;
+                    cash -= newcashout;
+                    totalCashout += newcashout;
+                }
+
+                log(`No more cash added! Cash Takeout: ${newcashout} PrevCash: ${formatCash(prevCash)} NewCash: ${formatCash(cash)}`);
                 continue;
             }
 
-            // const qty = calcQty(monthlyAdd);
+            // const qty = calcQtySm(5000);
             // buy(date, last, rsi, qty);
             originalCash += monthlyAdd;
             cash += monthlyAdd;
+            log(`Cash Added: ${monthlyAdd} => ${formatCash(cash)}`);
         }
     }
 
@@ -70,15 +125,130 @@ function process() {
     log(`YEARS: ${yearsToProcess}`);
     log(`ORIGINAL CASH: ${originalCash}`);
     log(`MONTHLY ADD: ${monthlyAdd}`);
-    log(`CASH TAKEOUT: ${cashTakeout}`);
-    
+    log(`MONTHLY TAKEOUT: MONTHLY: ${cashTakeout} PCT-TAKEOUT: ${pctTakeout}`);
+    log(`TOTAL TAKEOUT: ${formatCash(totalCashout)}`);
+
     log(`BUY LEVELS: ${buyLevels}`);
     log(`SELL LEVELS: ${sellLevels}`);
 
     log(`Cash Left: $${formatCash(cash)}`);
     const sum = lastPrice * globalQty;
+
     log(`Final: Last Price:${lastPrice} GlobalQty:${globalQty} Equity Value:${sum} Total Value: ${cash + sum}(${formatCash(cash + sum)})  PctIncrease: ${percentIncrease(originalCash, cash + sum)}%`);
-    log(`RsiStats: ${JSON.stringify(rsiStats)}`);
+    log(`stats: ${JSON.stringify(stats)}`);
+
+    //downloadContent(JSON.stringify(stats),'TQQQ-Output.json');
+
+    downloadContent(logEntries.join('\n'), 'TQQQ-DCA_LOG_staged.log');
+
+}
+
+function calcQty(type, level, last, date) {
+    if (!hasPctLevels) {
+        const levels = type === "buy" ? buyLevels[date.getFullYear().toString()] : sellLevels[date.getFullYear().toString()];
+        return Math.round(levels[level] / last);
+    }
+    else {
+        if (type === "buy") {
+            const cashPct = buyLevelsPct[level];
+            const amt = percentOf((cash + (lastPrice * globalQty)), cashPct);
+            //const amt = percentOf(cash, cashPct);
+            return Math.round(amt / last);
+        } else {
+            const cashPct = sellLevelsPct[level];
+            const amt = percentOf((cash + (lastPrice * globalQty)), cashPct);
+            //const amt = percentOf(cash, cashPct);
+            return Math.round(amt / last);
+        }
+    }
+}
+
+function buyZone(date, last, rsi) {
+    const rsib = (lower, higher) => rsi > lower && rsi <= higher; //rsi between
+    const rsil = (val) => rsi <= val; //rsi less than value
+    const rsig = (val) => rsi >= val; //rsi greater than value
+    let qty = 0;
+    //let calcQty = (level) => Math.round(level / last);
+
+    // qty = calcQty(500);
+    // buy(date, last, rsi, qty);
+
+    let level = -1;
+    if (rsib(50, 55)) level = 0;
+    else if (rsib(45, 50)) level = 1;
+    else if (rsib(40, 45)) level = 2;
+    else if (rsil(40)) level = 3;
+
+    // qty =  Math.round((55 - rsi) * 100);
+    qty = calcQty('buy', level, last, date);
+    buy(date, last, rsi, qty, level);
+}
+
+function sellZone(date, last, rsi) {
+    const rsib = (lower, higher) => rsi >= lower && rsi <= higher; //rsi between
+    const rsil = (val) => rsi <= val; //rsi less than value
+    const rsig = (val) => rsi > val; //rsi greater than value
+    let qty = 0;
+    //let calcQty = (level) => Math.round(level / last);
+
+    let level = -1;
+    if (rsib(55, 60)) level = 0;
+    else if (rsib(60, 65)) level = 1;
+    else if (rsib(65, 70)) level = 2;
+    else if (rsig(70)) level = 3;
+
+    // qty = Math.round((rsi - 55) * 100);
+    qty = calcQty('sell', level, last, date);
+    sell(date, last, rsi, qty, level);
+}
+
+function buy(date, last, rsi, qty, level) {
+    buildstats(rsi);
+    const buyTotal = qty * last;
+    if (buyTotal > cash) {
+        log(`Buy: Not Enough Cash!`);
+        stats["buyNotEnoughCash"] += 1;
+        return; //not enough cash to buy
+    }
+    globalQty += qty;
+    cash = cash - buyTotal;
+    const totalValue = Math.round((last * globalQty) + cash);
+    log(`Buy: (${level})${qty} * ${Math.round(last)} = ${Math.round(buyTotal)} on ${date.toLocaleDateString("en-US")} cash: $${formatCash(Math.round(cash))} rsi: ${rsi} qty: ${qty} globalQty:${globalQty} totalValue: ${formatCash(totalValue)}`);
+}
+
+function sell(date, last, rsi, qty, level) {
+    buildstats(rsi);
+    if (qty > globalQty) {
+        stats["sellNotEnoughShares"] += 1;
+        log(`Sell: No Shares to Sell!`);
+        return false; //nothing to sell
+    }
+    globalQty -= qty;
+    const soldTotal = qty * last;
+
+    cash = cash + soldTotal;
+    const daysHold = 0;//Math.ceil((date - found.date) / 8.64e7);
+    const totalValue = Math.round((last * globalQty) + cash);
+    log(`Sell: (${level})${qty} * ${Math.round(last)} = ${Math.round(soldTotal)} on ${date.toLocaleDateString("en-US")} cash: $${formatCash(Math.round(cash))} rsi: ${rsi} qty: ${qty} globalQty:${globalQty} totalValue: ${formatCash(totalValue)}`);
+    return true;
+}
+
+function buildstats(rsi) {
+    const rsib = (lower, higher) => rsi > lower && rsi <= higher; //rsi between
+    const rsil = (val) => rsi <= val; //rsi less than value
+    const rsig = (val) => rsi >= val; //rsi greater than value
+    if (rsib(45, 50))
+        stats['45-50'] += 1;
+    else if (rsib(40, 45))
+        stats['40-45'] += 1;
+    else if (rsil(40))
+        stats['<40'] += 1;
+    else if (rsib(60, 65))
+        stats['60-65'] += 1;
+    else if (rsib(65, 70))
+        stats['65-70'] += 1;
+    else if (rsig(70))
+        stats['>70'] += 1;
 }
 
 function formatCash(n) {
@@ -89,99 +259,29 @@ function formatCash(n) {
     if (n >= 1e12) return +(n / 1e12).toFixed(1) + "T";
 }
 
-function buyZone(date, last, rsi) {
-    const rsib = (lower, higher) => rsi > lower && rsi <= higher; //rsi between
-    const rsil = (val) => rsi <= val; //rsi less than value
-    const rsig = (val) => rsi >= val; //rsi greater than value
-    let qty = 0;
-    let calcQty = (level) => Math.round(level / last);
+function downloadContent(content, fileName, mimeType = 'text/csv;encoding:utf-8') {
+    const a = document.createElement('a');
+    mimeType = mimeType || 'application/octet-stream';
 
-    // qty = calcQty(500);
-    // buy(date, last, rsi, qty);
-
-    const levels = buyLevels;
-    if (rsib(50, 55))
-        qty = calcQty(levels[0]);
-    if (rsib(45, 50))
-        qty = calcQty(levels[1]);
-    else if (rsib(40, 45))
-        qty = calcQty(levels[2]);
-    else if (rsil(40))
-        qty = calcQty(levels[3]);
-
-    // qty =  Math.round((55 - rsi) * 100);
-    buy(date, last, rsi, qty);
-}
-
-function sellZone(date, last, rsi) {
-    const rsib = (lower, higher) => rsi >= lower && rsi <= higher; //rsi between
-    const rsil = (val) => rsi <= val; //rsi less than value
-    const rsig = (val) => rsi > val; //rsi greater than value
-    let qty = 0;
-    let calcQty = (level) => Math.round(level / last);
-
-    const levels = sellLevels;
-    if (rsib(55, 60))
-        qty = calcQty(levels[0]);
-    else if (rsib(60, 65))
-        qty = calcQty(levels[1]);
-    else if (rsib(65, 70))
-        qty = calcQty(levels[2]);
-    else if (rsig(70))
-        qty = calcQty(levels[3]);
-
-    // qty = Math.round((rsi - 55) * 100);
-    sell(date, last, rsi, qty);
-}
-
-function buy(date, last, rsi, qty) {
-    buildRsiStats(rsi);
-    const buyTotal = qty * last;
-    if (buyTotal > cash) {
-        log(`Buy: Not Enough Cash!`);
-        return; //not enough cash to buy
+    if (navigator.msSaveBlob) { // IE10
+        navigator.msSaveBlob(new Blob([content], {
+            type: mimeType
+        }), fileName);
+    } else if (URL && 'download' in a) { //html5 A[download]
+        a.href = URL.createObjectURL(new Blob([content], {
+            type: mimeType
+        }));
+        a.setAttribute('download', fileName);
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    } else {
+        location.href = 'data:application/octet-stream,' + encodeURIComponent(content); // only this mime type is supported
     }
-    globalQty += qty;
-    cash = cash - buyTotal;
-    const totalValue = Math.round((last * globalQty) + cash);
-    log(`Buy: ${qty} * ${last} = ${buyTotal} on ${date.toLocaleDateString("en-US")} cash: $${cash} rsi: ${rsi} qty: ${qty} globalQty:${globalQty} totalValue: ${formatCash(totalValue)}`);
-}
-
-function sell(date, last, rsi, qty) {
-    buildRsiStats(rsi);
-    if (qty > globalQty) {
-        log(`Sell: No Shares to Sell!`);
-        return false; //nothing to sell
-    }
-    globalQty -= qty;
-    const soldTotal = qty * last;
-
-    cash = cash + soldTotal;
-    const daysHold = 0;//Math.ceil((date - found.date) / 8.64e7);
-    const totalValue = Math.round((last * globalQty) + cash);
-    log(`Sell: ${qty} * ${last} = ${soldTotal} on ${date.toLocaleDateString("en-US")} cash: $${cash} rsi: ${rsi} qty: ${qty} globalQty:${globalQty} totalValue: ${formatCash(totalValue)}`);
-    return true;
-}
-
-function buildRsiStats(rsi) {
-    const rsib = (lower, higher) => rsi > lower && rsi <= higher; //rsi between
-    const rsil = (val) => rsi <= val; //rsi less than value
-    const rsig = (val) => rsi >= val; //rsi greater than value
-    if (rsib(45, 50))
-        rsiStats['45-50'] += 1;
-    else if (rsib(40, 45))
-        rsiStats['40-45'] += 1;
-    else if (rsil(40))
-        rsiStats['<40'] += 1;
-    else if (rsib(60, 65))
-        rsiStats['60-65'] += 1;
-    else if (rsib(65, 70))
-        rsiStats['65-70'] += 1;
-    else if (rsig(70))
-        rsiStats['>70'] += 1;
 }
 
 function log(msg) {
+    logEntries.push(msg);
     console.log(msg);
 }
 
@@ -194,6 +294,14 @@ function prepareData(yearsToProcess) {
 //price increased from 100(initialAmt) to 110(finalAmt), what percent increased: 110%
 function percentIncrease(initialAmt, finalAmt) {
     return parseFloat((((finalAmt - initialAmt) / initialAmt) * 100).toFixed(2));
+}
+//20(p1) is what percentage of 100(p2): 20%
+function percentOfValue(p1, p2) {
+    return Math.round((p1 / p2) * 100);
+}
+//What is 5%(percent) of 100(val): 5
+function percentOf(val, percent) {
+    return (val * percent) / 100;
 }
 
 setTimeout(() => { process() }, 100);
